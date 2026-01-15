@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stool Tracker</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU3Rvb2wgVHJhY2tlciIsInNob3J0X25hbWUiOiJTdG9vbFRyYWNrZXIiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiIzRmNDZlNSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSTNNVEV5SWlCb1pXbG5hSFE5SWpjeE1USWlQaUE4Y21WamRDQjNhV1IwYUQwaU56RXhNaUlnYUdWcFoyaDBQU0kzTVRFeUlpQm1hV3hzUFNJak5HWTBObVUxSWk4K0lEd3ZjM1puUGc9PSIsInNpemVzIjoiNzExeDcxMSIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f3f4f6;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            border: none;
+            background: none;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: white;
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .quick-log {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .date-selector {
+            margin-bottom: 20px;
+        }
+
+        .date-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .date-selector input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        .button-group {
+            margin-bottom: 20px;
+        }
+
+        .button-group-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #4b5563;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .log-button {
+            flex: 1;
+            min-width: 100px;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .log-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .log-button.selected {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+
+        .log-button .icon {
+            font-size: 24px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .checkbox-item:hover {
+            background: #f9fafb;
+        }
+
+        .checkbox-item.checked {
+            background: #ede9fe;
+            border-color: #7c3aed;
+        }
+
+        .checkbox-item input {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            flex: 1;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.3);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .calendar-header {
+            text-align: center;
+            font-weight: 700;
+            padding: 10px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            position: relative;
+        }
+
+        .calendar-day:hover {
+            border-color: #4f46e5;
+            transform: scale(1.05);
+        }
+
+        .calendar-day.empty {
+            background: #f9fafb;
+            cursor: default;
+        }
+
+        .calendar-day.empty:hover {
+            transform: none;
+            border-color: #e5e7eb;
+        }
+
+        .calendar-day-number {
+            font-weight: 600;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .calendar-day.has-entry {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .calendar-day-indicator {
+            width: 6px;
+            height: 6px;
+            background: #3b82f6;
+            border-radius: 50%;
+            margin-top: 2px;
+        }
+
+        .month-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+
+        .month-navigation button {
+            padding: 10px 20px;
+            border: none;
+            background: #4f46e5;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .month-navigation button:hover {
+            background: #4338ca;
+        }
+
+        .month-navigation h2 {
+            color: #1f2937;
+        }
+
+        .export-button {
+            width: 100%;
+            padding: 18px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .export-button:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .entry-detail {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .entry-detail h3 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .entry-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .entry-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .entry-info-item strong {
+            color: #4b5563;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .delete-button {
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .delete-button:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💩 Stool Tracker</h1>
+            <p>Track your daughter's digestive health</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('log')">📝 Log Entry</button>
+            <button class="tab" onclick="switchTab('calendar')">📅 Calendar</button>
+            <button class="tab" onclick="switchTab('export')">📊 Export</button>
+        </div>
+
+        <div class="content">
+            <!-- Log Entry View -->
+            <div class="view active" id="log-view">
+                <div class="success-message" id="success-message">
+                    ✅ Entry logged successfully!
+                </div>
+
+                <div class="quick-log">
+                    <div class="date-selector">
+                        <label for="log-date">📅 Date</label>
+                        <input type="date" id="log-date">
+                    </div>
+
+                    <div class="button-group">
+                        <div class="button-group-title">
+                            <span>📏</span> Size
+                        </div>
+                        <div class="button-row">
+                            <button class="log-button" onclick="selectOption('size', 'small')">
+                                <span class="icon">🔸</span>
+                                <span>Small</span>
+                            </button>
+                            <button class="log-button" onclick="selectOption('size', 'medium')">
+                                <span class="icon">🔶</span>
+                                <span>Medium</span>
+                            </button>
+                            <button class="log-button" onclick="selectOption('size', 'large')">
+                                <span class="icon">🔺</span>
+                                <span>Large</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <div class="button-group-title">
+                            <span>💧</span> Consistency
+                        </div>
+                        <div class="button-row">
+                            <button class="log-button" onclick="selectOption('consistency', 'soft')">
+                                <span class="icon">💧</span>
+                                <span>Soft</span>
+                            </button>
+                            <button class="log-button" onclick="selectOption('consistency', 'normal')">
+                                <span class="icon">✨</span>
+                                <span>Normal</span>
+                            </button>
+                            <button class="log-button" onclick="selectOption('consistency', 'hard')">
+                                <span class="icon">🪨</span>
+                                <span>Hard</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <div class="button-group-title">
+                            <span>💊</span> Treatments
+                        </div>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item" onclick="toggleCheckbox('suppository')">
+                                <input type="checkbox" id="suppository-check">
+                                <label for="suppository-check">
+                                    <span>💉</span>
+                                    <span>Gave Suppository</span>
+                                </label>
+                            </div>
+                            <div class="checkbox-item" onclick="toggleCheckbox('medication')">
+                                <input type="checkbox" id="medication-check">
+                                <label for="medication-check">
+                                    <span>💊</span>
+                                    <span>On Stool Softening Medication</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="submit-button" onclick="submitEntry()">
+                        ✅ Log Entry
+                    </button>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div class="view" id="calendar-view">
+                <div class="month-navigation">
+                    <button onclick="changeMonth(-1)">← Previous</button>
+                    <h2 id="current-month"></h2>
+                    <button onclick="changeMonth(1)">Next →</button>
+                </div>
+                <div class="calendar-grid" id="calendar-grid"></div>
+                <div id="selected-day-entries"></div>
+            </div>
+
+            <!-- Export View -->
+            <div class="view" id="export-view">
+                <h2 style="margin-bottom: 20px; color: #1f2937;">Export Data</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">Download all logged entries as a CSV file for your records or to share with healthcare providers.</p>
+                <button class="export-button" onclick="exportToCSV()">
+                    📥 Download CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentState = {
+            size: null,
+            consistency: null
+        };
+
+        let currentCalendarDate = new Date();
+        let entries = {};
+
+        // Initialize
+        function init() {
+            loadEntries();
+            setDefaultDate();
+            renderCalendar();
+        }
+
+        function setDefaultDate() {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            document.getElementById('log-date').value = dateStr;
+        }
+
+        function loadEntries() {
+            const stored = localStorage.getItem('stoolTrackerEntries');
+            if (stored) {
+                entries = JSON.parse(stored);
+            }
+        }
+
+        function saveEntries() {
+            localStorage.setItem('stoolTrackerEntries', JSON.stringify(entries));
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + '-view').classList.add('active');
+
+            if (tab === 'calendar') {
+                renderCalendar();
+            }
+        }
+
+        function selectOption(type, value) {
+            const buttons = document.querySelectorAll(`.button-group:has(.button-group-title:contains("${type}")) .log-button`);
+            buttons.forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(value)) {
+                    btn.classList.toggle('selected');
+                    if (btn.classList.contains('selected')) {
+                        currentState[type] = value;
+                    } else {
+                        currentState[type] = null;
+                    }
+                }
+            });
+        }
+
+        function toggleCheckbox(type) {
+            const checkbox = document.getElementById(type + '-check');
+            checkbox.checked = !checkbox.checked;
+            checkbox.parentElement.classList.toggle('checked');
+        }
+
+        function submitEntry() {
+            const dateInput = document.getElementById('log-date').value;
+            if (!dateInput) {
+                alert('Please select a date');
+                return;
+            }
+
+            if (!currentState.size || !currentState.consistency) {
+                alert('Please select both size and consistency');
+                return;
+            }
+
+            const entry = {
+                date: dateInput,
+                size: currentState.size,
+                consistency: currentState.consistency,
+                suppository: document.getElementById('suppository-check').checked,
+                medication: document.getElementById('medication-check').checked,
+                timestamp: new Date().toISOString()
+            };
+
+            if (!entries[dateInput]) {
+                entries[dateInput] = [];
+            }
+            entries[dateInput].push(entry);
+            saveEntries();
+
+            // Show success message
+            const msg = document.getElementById('success-message');
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 3000);
+
+            // Reset form
+            resetForm();
+        }
+
+        function resetForm() {
+            currentState = { size: null, consistency: null };
+            document.querySelectorAll('.log-button.selected').forEach(btn => btn.classList.remove('selected'));
+            document.querySelectorAll('.checkbox-item.checked').forEach(item => item.classList.remove('checked'));
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            setDefaultDate();
+        }
+
+        function renderCalendar() {
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            document.getElementById('current-month').textContent = 
+                currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            // Add day headers
+            ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-header';
+                header.textContent = day;
+                grid.appendChild(header);
+            });
+
+            // Add empty cells
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day empty';
+                grid.appendChild(empty);
+            }
+
+            // Add days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasEntry = entries[dateStr] && entries[dateStr].length > 0;
+
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day' + (hasEntry ? ' has-entry' : '');
+                dayCell.onclick = () => showDayEntries(dateStr);
+
+                const number = document.createElement('div');
+                number.className = 'calendar-day-number';
+                number.textContent = day;
+                dayCell.appendChild(number);
+
+                if (hasEntry) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'calendar-day-indicator';
+                    dayCell.appendChild(indicator);
+                }
+
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function showDayEntries(dateStr) {
+            const container = document.getElementById('selected-day-entries');
+            const dayEntries = entries[dateStr] || [];
+
+            if (dayEntries.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 20px;">No entries for this day</p>';
+                return;
+            }
+
+            const date = new Date(dateStr + 'T00:00:00');
+            container.innerHTML = `<h3 style="margin-bottom: 15px; color: #1f2937;">Entries for ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>`;
+
+            dayEntries.forEach((entry, index) => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'entry-detail';
+                entryDiv.innerHTML = `
+                    <h3>Entry ${index + 1}</h3>
+                    <div class="entry-info">
+                        <div class="entry-info-item">
+                            <strong>Size:</strong> ${entry.size}
+                        </div>
+                        <div class="entry-info-item">
+                            <strong>Consistency:</strong> ${entry.consistency}
+                        </div>
+                        <div class="entry-info-item">
+                            <strong>Suppository:</strong> ${entry.suppository ? '✅ Yes' : '❌ No'}
+                        </div>
+                        <div class="entry-info-item">
+                            <strong>Medication:</strong> ${entry.medication ? '✅ Yes' : '❌ No'}
+                        </div>
+                    </div>
+                    <button class="delete-button" onclick="deleteEntry('${dateStr}', ${index})">🗑️ Delete Entry</button>
+                `;
+                container.appendChild(entryDiv);
+            });
+        }
+
+        function deleteEntry(dateStr, index) {
+            if (confirm('Are you sure you want to delete this entry?')) {
+                entries[dateStr].splice(index, 1);
+                if (entries[dateStr].length === 0) {
+                    delete entries[dateStr];
+                }
+                saveEntries();
+                renderCalendar();
+                showDayEntries(dateStr);
+            }
+        }
+
+        function exportToCSV() {
+            const rows = [['Date', 'Time', 'Size', 'Consistency', 'Suppository', 'Medication']];
+
+            Object.keys(entries).sort().forEach(dateStr => {
+                entries[dateStr].forEach(entry => {
+                    const time = new Date(entry.timestamp).toLocaleTimeString();
+                    rows.push([
+                        dateStr,
+                        time,
+                        entry.size,
+                        entry.consistency,
+                        entry.suppository ? 'Yes' : 'No',
+                        entry.medication ? 'Yes' : 'No'
+                    ]);
+                });
+            });
+
+            const csv = rows.map(row => row.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stool-tracker-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsgc2VsZi5za2lwV2FpdGluZygpOyB9KTs=')
+                .catch(err => console.log('SW registration failed'));
+        }
+
+        init();
+    </script>
+</body>
+</html>

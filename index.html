@@ -167,48 +167,6 @@
             font-size: 32px;
         }
 
-        .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .checkbox-item:hover {
-            background: #f9fafb;
-        }
-
-        .checkbox-item.checked {
-            background: #ede9fe;
-            border-color: #7c3aed;
-        }
-
-        .checkbox-item input {
-            margin-right: 12px;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .checkbox-item label {
-            flex: 1;
-            cursor: pointer;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
         .submit-button {
             width: 100%;
             padding: 18px;
@@ -632,7 +590,9 @@
         let currentCalendarDate = new Date();
         let entries = {};
 
-        // Initialize
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', init);
+
         function init() {
             loadEntries();
             setDefaultDates();
@@ -911,4 +871,46 @@
                         rows.push([
                             dateStr,
                             time,
-                            '
+                            'Bowel Movement',
+                            entry.size,
+                            entry.consistency
+                        ]);
+                    } else if (entry.type === 'suppository') {
+                        rows.push([
+                            dateStr,
+                            time,
+                            'Suppository',
+                            '',
+                            ''
+                        ]);
+                    } else if (entry.type === 'medication') {
+                        rows.push([
+                            dateStr,
+                            time,
+                            'Medication',
+                            '',
+                            ''
+                        ]);
+                    }
+                });
+            });
+
+            const csvContent = rows.map(row => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stool-tracker-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZSA9PiB7CiAgICBlLndhaXRVbnRpbChzZWxmLnNraXBXYWl0aW5nKCkpOwp9KTsKCnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignYWN0aXZhdGUnLCBlID0+IHsKICAgIGUud2FpdFVudGlsKHNlbGYuY2xpZW50cy5jbGFpbSgpKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJywgZSA9PiB7CiAgICBlLnJlc3BvbmRXaXRoKAogICAgICAgIGNhY2hlcy5tYXRjaChlLnJlcXVlc3QpLnRoZW4ocmVzcG9uc2UgPT4gewogICAgICAgICAgICByZXR1cm4gcmVzcG9uc2UgfHwgZmV0Y2goZS5yZXF1ZXN0KTsKICAgICAgICB9KQogICAgKTsKfSk7').catch(() => {});
+        }
+    </script>
+</body>
+</html>

@@ -577,6 +577,18 @@
                 <button class="export-button" onclick="exportToCSV()">
                     📥 Download CSV
                 </button>
+
+                <h2 style="margin: 40px 0 20px 0; color: #1f2937;">Import Data</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">Restore your data from a previously exported CSV file. This will merge with existing data.</p>
+                
+                <div class="import-section">
+                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;" onchange="handleFileSelect(event)">
+                    <button class="export-button" style="background: #8b5cf6;" onclick="document.getElementById('csv-file-input').click()">
+                        📤 Import CSV
+                    </button>
+                </div>
+
+                <div id="import-message" style="margin-top: 20px;"></div>
             </div>
         </div>
     </div>
@@ -910,6 +922,107 @@
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    importFromCSV(e.target.result);
+                } catch (error) {
+                    showImportMessage('Error importing file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function importFromCSV(csvContent) {
+            const lines = csvContent.split('\n');
+            if (lines.length < 2) {
+                showImportMessage('CSV file is empty or invalid', 'error');
+                return;
+            }
+
+            // Skip header row
+            let importedCount = 0;
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const parts = line.split(',');
+                if (parts.length < 3) continue;
+
+                const dateStr = parts[0].trim();
+                const timeStr = parts[1].trim();
+                const typeStr = parts[2].trim();
+                
+                // Validate date format
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+
+                let entry = {
+                    date: dateStr,
+                    timestamp: new Date().toISOString() // Default timestamp
+                };
+
+                // Try to parse the time and create a proper timestamp
+                try {
+                    const dateTimeStr = dateStr + ' ' + timeStr;
+                    const parsedDate = new Date(dateTimeStr);
+                    if (!isNaN(parsedDate.getTime())) {
+                        entry.timestamp = parsedDate.toISOString();
+                    }
+                } catch (e) {
+                    // Use default timestamp if parsing fails
+                }
+
+                if (typeStr === 'Bowel Movement') {
+                    entry.type = 'stool';
+                    entry.size = parts[3] ? parts[3].trim() : 'medium';
+                    entry.consistency = parts[4] ? parts[4].trim() : 'normal';
+                } else if (typeStr === 'Suppository') {
+                    entry.type = 'suppository';
+                } else if (typeStr === 'Medication') {
+                    entry.type = 'medication';
+                } else {
+                    continue; // Skip unknown types
+                }
+
+                // Add entry
+                if (!entries[dateStr]) {
+                    entries[dateStr] = [];
+                }
+                entries[dateStr].push(entry);
+                importedCount++;
+            }
+
+            if (importedCount > 0) {
+                saveEntries();
+                renderCalendar();
+                showImportMessage(`Successfully imported ${importedCount} entries!`, 'success');
+            } else {
+                showImportMessage('No valid entries found in CSV file', 'error');
+            }
+
+            // Reset file input
+            document.getElementById('csv-file-input').value = '';
+        }
+
+        function showImportMessage(message, type) {
+            const messageDiv = document.getElementById('import-message');
+            messageDiv.innerHTML = `
+                <div style="padding: 15px; border-radius: 10px; text-align: center; font-weight: 600; 
+                     background: ${type === 'success' ? '#d1fae5' : '#fee2e2'}; 
+                     color: ${type === 'success' ? '#065f46' : '#991b1b'};">
+                    ${message}
+                </div>
+            `;
+            
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 5000);
         }
 
         // Register service worker for PWA

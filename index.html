@@ -444,7 +444,8 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('log', this)">📝 Log Entry</button>
             <button class="tab" onclick="switchTab('calendar', this)">📅 Calendar</button>
-            <button class="tab" onclick="switchTab('export', this)">📊 Export</button>
+            <button class="tab" onclick="switchTab('chart', this)">📊 Chart</button>
+            <button class="tab" onclick="switchTab('export', this)">💾 Export</button>
         </div>
 
         <div class="content">
@@ -574,6 +575,55 @@
                 <div id="selected-day-entries"></div>
             </div>
 
+            <!-- Chart View -->
+            <div class="view" id="chart-view">
+                <h2 style="margin-bottom: 20px; color: #1f2937;">Bowel Movement Chart</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">Visual timeline of all logged entries</p>
+                
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="export-button" style="flex: 1; min-width: 200px;" onclick="renderChart()">
+                        🔄 Refresh Chart
+                    </button>
+                    <button class="export-button" style="flex: 1; min-width: 200px; background: #8b5cf6;" onclick="exportChartAsHTML()">
+                        💾 Export Chart as HTML
+                    </button>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid #e5e7eb;">
+                    <canvas id="bowel-chart" style="width: 100%; max-height: 500px;"></canvas>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 10px;">
+                    <h3 style="margin-bottom: 10px; color: #1f2937;">Legend</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background: #FFD700; border: 1px solid #000;"></div>
+                            <span>Loose</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background: #FFA500; border: 1px solid #000;"></div>
+                            <span>Soft</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background: #8B4513; border: 1px solid #000;"></div>
+                            <span>Normal</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background: #000000; border: 1px solid #000;"></div>
+                            <span>Hard</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 40px; height: 4px; background: #ef4444; border-radius: 2px;"></div>
+                            <span>Medication</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background: #3b82f6; border-radius: 50%;"></div>
+                            <span>Suppository</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Export View -->
             <div class="view" id="export-view">
                 <h2 style="margin-bottom: 20px; color: #1f2937;">Export Data</h2>
@@ -648,6 +698,8 @@
 
             if (tab === 'calendar') {
                 renderCalendar();
+            } else if (tab === 'chart') {
+                renderChart();
             }
         }
 
@@ -1027,6 +1079,335 @@
             setTimeout(() => {
                 messageDiv.innerHTML = '';
             }, 5000);
+        }
+
+        function renderChart() {
+            const canvas = document.getElementById('bowel-chart');
+            const ctx = canvas.getContext('2d');
+            
+            // Get all dates with entries
+            const allDates = Object.keys(entries).sort();
+            if (allDates.length === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#6b7280';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data to display', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // Create date range
+            const minDate = new Date(allDates[0]);
+            const maxDate = new Date(allDates[allDates.length - 1]);
+            const dateRange = [];
+            const currentDate = new Date(minDate);
+            
+            while (currentDate <= maxDate) {
+                dateRange.push(new Date(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // Set canvas size
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+            const padding = { top: 40, right: 20, bottom: 80, left: 50 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Define mappings
+            const sizeMap = { small: 1, medium: 2, large: 3 };
+            const consistencyColors = {
+                loose: '#FFD700',
+                soft: '#FFA500',
+                normal: '#8B4513',
+                hard: '#000000'
+            };
+
+            // Calculate max height for y-axis
+            let maxStackHeight = 0;
+            dateRange.forEach(date => {
+                const dateStr = date.toISOString().split('T')[0];
+                const dayEntries = entries[dateStr] || [];
+                const stoolEntries = dayEntries.filter(e => e.type === 'stool');
+                const totalHeight = stoolEntries.reduce((sum, e) => sum + (sizeMap[e.size] || 1), 0);
+                maxStackHeight = Math.max(maxStackHeight, totalHeight);
+            });
+            maxStackHeight = Math.max(maxStackHeight, 3);
+
+            // Draw axes
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, height - padding.bottom);
+            ctx.lineTo(width - padding.right, height - padding.bottom);
+            ctx.stroke();
+
+            // Draw bars and markers
+            const barWidth = Math.min(chartWidth / dateRange.length * 0.6, 40);
+            
+            // First pass: collect medication dates and positions
+            const medicationPositions = [];
+            dateRange.forEach((date, i) => {
+                const dateStr = date.toISOString().split('T')[0];
+                const dayEntries = entries[dateStr] || [];
+                const hasMedication = dayEntries.some(e => e.type === 'medication');
+                
+                if (hasMedication) {
+                    const x = padding.left + (chartWidth / dateRange.length) * i + (chartWidth / dateRange.length) / 2;
+                    medicationPositions.push({ x, index: i });
+                }
+            });
+
+            // Draw medication as connected line segments
+            if (medicationPositions.length > 0) {
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                let segmentStart = 0;
+                for (let i = 1; i <= medicationPositions.length; i++) {
+                    // Check if this is end of a segment (gap in dates or end of array)
+                    const isEndOfSegment = i === medicationPositions.length || 
+                                          medicationPositions[i].index - medicationPositions[i-1].index > 1;
+                    
+                    if (isEndOfSegment) {
+                        // Draw the segment
+                        const y = height - padding.bottom + 20;
+                        ctx.beginPath();
+                        ctx.moveTo(medicationPositions[segmentStart].x, y);
+                        for (let j = segmentStart; j < i; j++) {
+                            ctx.lineTo(medicationPositions[j].x, y);
+                        }
+                        ctx.stroke();
+
+                        // Draw dots at each point
+                        ctx.fillStyle = '#ef4444';
+                        for (let j = segmentStart; j < i; j++) {
+                            ctx.beginPath();
+                            ctx.arc(medicationPositions[j].x, y, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        segmentStart = i;
+                    }
+                }
+            }
+            
+            dateRange.forEach((date, i) => {
+                const dateStr = date.toISOString().split('T')[0];
+                const dayEntries = entries[dateStr] || [];
+                const x = padding.left + (chartWidth / dateRange.length) * i + (chartWidth / dateRange.length) / 2;
+
+                // Draw stool entries as stacked bars
+                const stoolEntries = dayEntries.filter(e => e.type === 'stool');
+                let yOffset = height - padding.bottom;
+                
+                stoolEntries.forEach(entry => {
+                    const barHeight = ((sizeMap[entry.size] || 1) / maxStackHeight) * chartHeight;
+                    const color = consistencyColors[entry.consistency] || consistencyColors.normal;
+                    
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x - barWidth / 2, yOffset - barHeight, barWidth, barHeight);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x - barWidth / 2, yOffset - barHeight, barWidth, barHeight);
+                    
+                    yOffset -= barHeight;
+                });
+
+                // Draw suppository marker
+                const hasSuppository = dayEntries.some(e => e.type === 'suppository');
+                if (hasSuppository) {
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.beginPath();
+                    ctx.arc(x, height - padding.bottom + 35, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // Draw x-axis labels
+                if (i % Math.max(1, Math.floor(dateRange.length / 30)) === 0 || i === dateRange.length - 1) {
+                    ctx.fillStyle = '#000';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.save();
+                    ctx.translate(x, height - padding.bottom + 10);
+                    ctx.rotate(-Math.PI / 4);
+                    ctx.fillText(date.getDate().toString(), 0, 0);
+                    
+                    if (date.getDate() === 1 || i === 0) {
+                        ctx.fillText(date.toLocaleDateString('en-US', { month: 'short' }), 0, 12);
+                    }
+                    ctx.restore();
+                }
+            });
+
+            // Draw y-axis labels
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= maxStackHeight; i++) {
+                const y = height - padding.bottom - (i / maxStackHeight) * chartHeight;
+                ctx.fillText(i.toString(), padding.left - 10, y + 4);
+                
+                // Draw grid line
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+            }
+
+            // Draw title
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Bowel Movement Tracker', width / 2, 25);
+
+            // Draw y-axis label
+            ctx.save();
+            ctx.translate(15, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Size (Stacked)', 0, 0);
+            ctx.restore();
+        }
+
+        function exportChartAsHTML() {
+            const canvas = document.getElementById('bowel-chart');
+            const dataURL = canvas.toDataURL('image/png');
+            
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bowel Movement Chart - ${new Date().toLocaleDateString()}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1f2937;
+            text-align: center;
+        }
+        .chart-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #000;
+        }
+        .legend-color.circle {
+            border-radius: 50%;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bowel Movement Chart</h1>
+        <p style="text-align: center; color: #6b7280;">Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        
+        <div class="chart-container">
+            <img src="${dataURL}" alt="Bowel Movement Chart">
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFD700;"></div>
+                <span>Loose</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFA500;"></div>
+                <span>Soft</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #8B4513;"></div>
+                <span>Normal</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #000000;"></div>
+                <span>Hard</span>
+            </div>
+            <div class="legend-item">
+                <div style="width: 40px; height: 4px; background: #ef4444; border-radius: 2px;"></div>
+                <span>Medication (connected line)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color circle" style="background: #3b82f6; border-color: #3b82f6;"></div>
+                <span>Suppository</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Stool Tracker App - Health Tracking Chart</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bowel-movement-chart-${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
         }
 
         // Register service worker for PWA

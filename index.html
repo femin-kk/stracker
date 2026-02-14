@@ -656,13 +656,45 @@
         let currentCalendarDate = new Date();
         let entries = {};
 
+        // IndexedDB setup
+        let db;
+        const DB_NAME = 'StoolTrackerDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'entries';
+
+        // Initialize IndexedDB
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'date' });
+                    }
+                };
+            });
+        }
+
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', init);
 
-        function init() {
-            loadEntries();
-            setDefaultDates();
-            renderCalendar();
+        async function init() {
+            try {
+                await initDB();
+                await loadEntries();
+                setDefaultDates();
+                renderCalendar();
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                alert('Failed to initialize the app. Please refresh the page.');
+            }
         }
 
         function setDefaultDates() {
@@ -678,15 +710,40 @@
             document.getElementById('medication-date').value = dateStr;
         }
 
-        function loadEntries() {
-            const stored = localStorage.getItem('stoolTrackerEntries');
-            if (stored) {
-                entries = JSON.parse(stored);
-            }
+        async function loadEntries() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    entries = {};
+                    request.result.forEach(item => {
+                        entries[item.date] = item.entries;
+                    });
+                    resolve();
+                };
+
+                request.onerror = () => reject(request.error);
+            });
         }
 
-        function saveEntries() {
-            localStorage.setItem('stoolTrackerEntries', JSON.stringify(entries));
+        async function saveEntries() {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            // Clear existing data
+            store.clear();
+
+            // Save all entries
+            Object.keys(entries).forEach(date => {
+                store.put({ date: date, entries: entries[date] });
+            });
+
+            return new Promise((resolve, reject) => {
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => reject(transaction.error);
+            });
         }
 
         function switchTab(tab, element) {
@@ -710,7 +767,7 @@
             stoolState[type] = value;
         }
 
-        function submitStoolEntry() {
+        async function submitStoolEntry() {
             const dateInput = document.getElementById('stool-date').value;
             if (!dateInput) {
                 alert('Please select a date');
@@ -729,13 +786,13 @@
                 entries[dateInput] = [];
             }
             entries[dateInput].push(entry);
-            saveEntries();
+            await saveEntries();
 
             showSuccessMessage();
             setDefaultDates();
         }
 
-        function submitSuppositoryEntry() {
+        async function submitSuppositoryEntry() {
             const dateInput = document.getElementById('suppository-date').value;
             if (!dateInput) {
                 alert('Please select a date');
@@ -752,13 +809,13 @@
                 entries[dateInput] = [];
             }
             entries[dateInput].push(entry);
-            saveEntries();
+            await saveEntries();
 
             showSuccessMessage();
             setDefaultDates();
         }
 
-        function submitMedicationEntry() {
+        async function submitMedicationEntry() {
             const dateInput = document.getElementById('medication-date').value;
             if (!dateInput) {
                 alert('Please select a date');
@@ -775,7 +832,7 @@
                 entries[dateInput] = [];
             }
             entries[dateInput].push(entry);
-            saveEntries();
+            await saveEntries();
 
             showSuccessMessage();
             setDefaultDates();
@@ -928,9 +985,10 @@
                 if (entries[dateStr].length === 0) {
                     delete entries[dateStr];
                 }
-                saveEntries();
-                renderCalendar();
-                showDayEntries(dateStr);
+                saveEntries().then(() => {
+                    renderCalendar();
+                    showDayEntries(dateStr);
+                });
             }
         }
 
@@ -1055,7 +1113,7 @@
             }
 
             if (importedCount > 0) {
-                saveEntries();
+                await saveEntries();
                 renderCalendar();
                 showImportMessage(`Successfully imported ${importedCount} entries!`, 'success');
             } else {
